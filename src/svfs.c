@@ -35,6 +35,8 @@ static vnode_ops_t svfs_file_vops = {.read = svfs_read,
  *     and the fs_t struct!
  */
 void svfs_init() {
+    // Initiate fs_t struct
+    
 }
 
 /*
