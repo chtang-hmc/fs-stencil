@@ -4,29 +4,42 @@
 #include <stdio.h>
 #include <string.h>
 
-int main()
+// seek to the start of a disk block and write size bytes of data there.
+// returns 0 on success, -1 on failure
+static int write_at_block(FILE *f, long block, const void *data, size_t size)
 {
-    // create the super struct
+    // find the block
+    if (fseek(f, block * SV_BLOCK_SIZE, SEEK_SET) != 0)
+    {
+        perror("Error seeking in disk image");
+        return -1;
+    }
+
+    // write at block
+    if (fwrite(data, size, 1, f) != 1)
+    {
+        perror("Error writing to disk image");
+        return -1;
+    }
+    return 0;
+}
+
+static int write_superblock(FILE *f)
+{
     svfs_super_t super;
     memset(&super, 0, sizeof(super));
     super.svs_magic = SV_MAGIC_NO;
     super.svs_free_inode = 1;
     super.svs_nfree = 127;
-    super.svs_root_inode = 0;  // pointer to root inode
+    super.svs_root_inode = 0;             // pointer to root inode
     super.svs_num_inodes = SV_NUM_INODES; // number of inodes in the system
-    super.svs_version = 1;     // version number for consistency
+    super.svs_version = 1;                // version number for consistency
 
-    // write super to file
-    FILE *f = fopen("sys/empty-fs.iso", "r+b");
-    if (f == NULL)
-    {
-        perror("Error opening file");
-        return 1;
-    }
-    fseek(f, 0, SEEK_SET);
-    fwrite(&super, sizeof(super), 1, f);
+    return write_at_block(f, SV_SUPER_BLOCK, &super, sizeof(super));
+}
 
-    // write the inodes
+static int write_inodes(FILE *f)
+{
     for (int i = 0; i < SV_NUM_INODES; ++i)
     {
         svfs_inode_t inode;
@@ -38,7 +51,7 @@ int main()
             inode.svi_mode = SV_MODE_DIRECTORY;
             inode.svi_un.svi_size = 2 * sizeof(dirent_t);
             inode.svi_direct_blocks[0] = SV_DATA_START_BLOCK; // first data block after the inodes
-            inode.svi_count = 2;             // "." and ".." since root is itself and its own parent
+            inode.svi_count = 2;                              // "." and ".." since root is itself and its own parent
         }
         else
         {
@@ -55,9 +68,49 @@ int main()
         }
         inode.svi_number = i;
 
-        fseek(f, (SV_INODE_START_BLOCK + i) * SV_BLOCK_SIZE, SEEK_SET);
-        fwrite(&inode, sizeof(inode), 1, f);
+        if (write_at_block(f, SV_INODE_START_BLOCK + i, &inode, sizeof(inode)) != 0)
+        {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int write_root_dir(FILE *f)
+{
+    dirent_t entries[2];
+    memset(entries, 0, sizeof(entries));
+
+    // 0th entry = "."
+    entries[0].d_ino = 0; // root itself
+    strcpy(entries[0].d_name, ".");
+    entries[0].d_off = sizeof(dirent_t); // where ".." starts, i.e. next entry
+
+    // 1st entry = ".."
+    entries[1].d_ino = 0; // root itself since it's its own parent
+    strcpy(entries[1].d_name, "..");
+    entries[1].d_off = 2 * sizeof(dirent_t); // whatever is after that
+
+    return write_at_block(f, SV_DATA_START_BLOCK, entries, sizeof(entries));
+}
+
+int main()
+{
+    FILE *f = fopen("sys/empty-fs.iso", "r+b");
+    if (f == NULL)
+    {
+        perror("Error opening file");
+        return 1;
+    }
+
+    if (write_superblock(f) != 0 ||
+        write_inodes(f) != 0 ||
+        write_root_dir(f) != 0)
+    {
+        fclose(f);
+        return 1;
     }
 
     fclose(f);
+    return 0;
 }
