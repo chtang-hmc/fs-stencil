@@ -1,9 +1,13 @@
 #include "svfs.h"
 
 #include "dirent.h"
+#include "sys/disk/disk.h"
+#include "util/string.h"
+#include "slab_allocator.h"
+#include <stdio.h>
 
-fs_ops_t svfs_fsops = { .fs_init = svfs_init,
-                        .read_vnode = svfs_read_vnode};
+fs_ops_t svfs_fsops = {.fs_init = svfs_init,
+                       .read_vnode = svfs_read_vnode};
 
 static vnode_ops_t svfs_dir_vops = {.read = NULL,
                                     .write = NULL,
@@ -25,6 +29,9 @@ static vnode_ops_t svfs_file_vops = {.read = svfs_read,
                                      .write_pframe = svfs_write_pframe,
                                      .flush_pframe = NULL};
 
+static svfs_t svfs;
+static slab_allocator_t svfs_node_allocator;
+
 /*
  * TODO: implement me!
  *
@@ -34,9 +41,31 @@ static vnode_ops_t svfs_file_vops = {.read = svfs_read,
  *   - it is your job here to implement both the fields of the svfs_t struct
  *     and the fs_t struct!
  */
-void svfs_init() {
-    // Initiate fs_t struct
-    
+void svfs_init()
+{
+    // read the super block
+    char buf[SV_BLOCK_SIZE];
+    read_disk_block(SV_SUPER_BLOCK, buf);
+    memcpy(&svfs.svfs_super, buf, sizeof(svfs_super_t));
+    if (svfs_check_super(&svfs.svfs_super) != 0)
+    {
+        fprintf(stderr, "File system failed to initiate\n");
+        return;
+    }
+
+    // fill in svfs
+    spinlock_init(&svfs.svfs_mutex);
+    svfs.svfs_fs = &vfs_root_fs;
+
+    // fill in vfs_root_fs
+    vfs_root_fs.fs_ops = &svfs_fsops;
+    list_init(&vfs_root_fs.vnode_list);
+    spinlock_init(&vfs_root_fs.vnode_list_mutex);
+    slab_allocator_init(&svfs_node_allocator, sizeof(svfs_node_t));
+    vfs_root_fs.vnode_allocator = &svfs_node_allocator;
+
+    // TODO (teammate): create the root vnode. Needs svfs_read_vnode and
+    // mobj_create to be implemented first.
 }
 
 /*
@@ -49,17 +78,30 @@ void svfs_init() {
  *   - what should the svfs_node/vnode fields be for a given file?
  *   - think about the distinction between normal file and directory!
  */
-void svfs_read_vnode(fs_t *fs, vnode_t *vn) {
+void svfs_read_vnode(fs_t *fs, vnode_t *vn)
+{
 }
-
 
 /*
  * Check the super block. Return 0 on success, else -1
  *
  * TODO: implement me!
  */
-long svfs_check_super(svfs_super_t *super) {
-    return -1;
+long svfs_check_super(svfs_super_t *super)
+{
+    // check all fields of super
+    if (super->svs_magic != SV_MAGIC_NO ||
+        super->svs_num_inodes != SV_NUM_INODES ||
+        super->svs_root_inode != 0 ||
+        !(super->svs_free_inode == -1 ||
+          (super->svs_free_inode >= 0 &&
+           super->svs_free_inode < SV_NUM_INODES)) ||
+        super->svs_nfree < 0 ||
+        super->svs_nfree > SV_NUM_DATA_BLOCKS)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 /*
@@ -73,7 +115,8 @@ long svfs_check_super(svfs_super_t *super) {
  *   - what is the next available inode?
  *   - where do we find the next available inode after we allocate this inode?
  */
-long svfs_alloc_inode(svfs_t *svfs) {
+long svfs_alloc_inode(svfs_t *svfs)
+{
     return -1;
 }
 
@@ -88,7 +131,8 @@ long svfs_alloc_inode(svfs_t *svfs) {
  *   - how should we read a directory entry?
  */
 long svfs_find_dirent(svfs_node_t *dir, const char *name, long namelen,
-                      svfs_node_t *ent) {
+                      svfs_node_t *ent)
+{
     return -1;
 }
 
@@ -102,7 +146,8 @@ long svfs_find_dirent(svfs_node_t *dir, const char *name, long namelen,
  *   - where is the data?
  *   - how do we access data from a svfs_node/vnode?
  */
-long svfs_read(vnode_t *vn, long pos, char *buf, long len) {
+long svfs_read(vnode_t *vn, long pos, char *buf, long len)
+{
     return -1;
 }
 
@@ -117,7 +162,8 @@ long svfs_read(vnode_t *vn, long pos, char *buf, long len) {
  *   - where do new data blocks come from?
  *   - where should we put the data relative to the vnode?
  */
-long svfs_write(vnode_t *vn, long pos, const char *buf, long len) {
+long svfs_write(vnode_t *vn, long pos, const char *buf, long len)
+{
     return -1;
 }
 
@@ -133,7 +179,8 @@ long svfs_write(vnode_t *vn, long pos, const char *buf, long len) {
  *   - don't forget to add the newly created vnode to any global tracking
  *     mechanisms!
  */
-long svfs_mknod(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
+long svfs_mknod(vnode_t *dir, const char *name, long namelen, vnode_t **out)
+{
     return -1;
 }
 
@@ -149,7 +196,8 @@ long svfs_mknod(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
  *   - don't forget to add the newly created vnode to any global tracking
  *     mechanisms!
  */
-long svfs_mkdir(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
+long svfs_mkdir(vnode_t *dir, const char *name, long namelen, vnode_t **out)
+{
     return -1;
 }
 
@@ -164,7 +212,8 @@ long svfs_mkdir(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
  *     dirent.h)
  *   - what happens if we can't find the directory?
  */
-long svfs_lookup(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
+long svfs_lookup(vnode_t *dir, const char *name, long namelen, vnode_t **out)
+{
     return -1;
 }
 
@@ -178,7 +227,8 @@ long svfs_lookup(vnode_t *dir, const char *name, long namelen, vnode_t **out) {
  *   - index the data associated with the directory
  *   - what happens if pos is not aligned to the dirent?
  */
-long svfs_readdir(vnode_t *vnode, long pos, dirent_t **d) {
+long svfs_readdir(vnode_t *vnode, long pos, dirent_t **d)
+{
     return -1;
 }
 
@@ -192,7 +242,8 @@ long svfs_readdir(vnode_t *vnode, long pos, dirent_t **d) {
  *   - are there helper functions that can help us out?
  *   - how do we access these helpers?
  */
-long svfs_read_pframe(vnode_t *vnode, long pagenum, pframe_t **pfp) {
+long svfs_read_pframe(vnode_t *vnode, long pagenum, pframe_t **pfp)
+{
     return -1;
 }
 
@@ -201,6 +252,7 @@ long svfs_read_pframe(vnode_t *vnode, long pagenum, pframe_t **pfp) {
  *
  * TODO: implement me!
  */
-long svfs_write_pframe(vnode_t *vnode, pframe_t *pf) {
+long svfs_write_pframe(vnode_t *vnode, pframe_t *pf)
+{
     return -1;
 }
