@@ -21,8 +21,11 @@
 
 // disk layout: [superblock][inodes, one per block][data blocks]
 #define SV_NUM_INODES 32
-#define SV_INODE_START_BLOCK (SV_SUPER_BLOCK + 1) // block holding inode 0
+#define SV_INODE_START_BLOCK (SV_SUPER_BLOCK + 1)                  // block holding inode 0
 #define SV_DATA_START_BLOCK (SV_INODE_START_BLOCK + SV_NUM_INODES) // first data block
+#define SV_FIRST_FREE_BLOCK (SV_DATA_START_BLOCK + 1)              // first data block after root's
+#define SV_NUM_DATA_BLOCKS 128
+#define SV_LAST_DATA_BLOCK (SV_DATA_START_BLOCK + SV_NUM_DATA_BLOCKS - 1) // last block on the disk
 
 typedef struct svfs_super
 {

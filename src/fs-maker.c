@@ -35,6 +35,12 @@ static int write_superblock(FILE *f)
     super.svs_num_inodes = SV_NUM_INODES; // number of inodes in the system
     super.svs_version = 1;                // version number for consistency
 
+    // fill in free block list
+    for (int i = 0; i < SV_NFBLKS_PER_NODE; ++i)
+    {
+        super.svs_free_blocks[i] = SV_FIRST_FREE_BLOCK + i;
+    }
+
     return write_at_block(f, SV_SUPER_BLOCK, &super, sizeof(super));
 }
 
@@ -94,6 +100,33 @@ static int write_root_dir(FILE *f)
     return write_at_block(f, SV_DATA_START_BLOCK, entries, sizeof(entries));
 }
 
+// use a chain of blocks to store the free list
+// since we have 128 total blocks and only 30 spots in the free block list
+static int write_free_list(FILE *f)
+{
+    long c = SV_FIRST_FREE_BLOCK + SV_NFBLKS_PER_NODE - 1; // = 63, first block in the chain of blocks
+    while (c != 0)
+    {
+        long array[SV_NFBLKS_PER_NODE];
+        memset(array, 0, sizeof(array));
+        for (long j = 0; j < SV_NFBLKS_PER_NODE; ++j)
+        {
+            if (c + 1 + j > SV_LAST_DATA_BLOCK) // stop at last data block
+            {
+                break;
+            }
+            array[j] = c + 1 + j;
+        }
+        if (write_at_block(f, c, array, sizeof(array)) != 0)
+        { // error handling
+            return -1;
+        }
+        c = array[SV_NFBLKS_PER_NODE - 1]; // recurse to the next level
+    }
+
+    return 0;
+}
+
 int main()
 {
     FILE *f = fopen("sys/empty-fs.iso", "r+b");
@@ -103,9 +136,11 @@ int main()
         return 1;
     }
 
+    // write all required parts
     if (write_superblock(f) != 0 ||
         write_inodes(f) != 0 ||
-        write_root_dir(f) != 0)
+        write_root_dir(f) != 0 ||
+        write_free_list(f) != 0)
     {
         fclose(f);
         return 1;
