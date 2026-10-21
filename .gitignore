@@ -1,1 +1,12 @@
+# disk images
 *.iso
+
+# build output
+bin/*
+!bin/.README
+*.dSYM/
+*.o
+
+# macOS
+.DS_Store
+.vscode
