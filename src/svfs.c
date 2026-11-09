@@ -341,6 +341,7 @@ static long svfs_get_block(void)
     }
     else
     {
+        // shift the free list left
         for (int i = 0; i < SV_NFBLKS_PER_NODE - 1; i++)
             s->svs_free_blocks[i] = s->svs_free_blocks[i + 1];
 
@@ -349,6 +350,7 @@ static long svfs_get_block(void)
 
     s->svs_nfree--;
 
+    // save the superblock
     char buf[SV_BLOCK_SIZE];
     read_disk_block(SV_SUPER_BLOCK, buf);
     memcpy(buf, s, sizeof(*s));
@@ -369,6 +371,7 @@ static long svfs_data_block(svfs_node_t *node, long page, int create)
 
     if (page < SV_NDIRECT_BLKS)
     {
+        // use a direct block
         block = node->inode.svi_direct_blocks[page];
 
         if (block == 0 && create)
@@ -382,6 +385,7 @@ static long svfs_data_block(svfs_node_t *node, long page, int create)
     }
     else
     {
+        // use the indirect block
         long indirect = node->inode.svi_indirect_block;
 
         if (indirect == 0 && create)
@@ -512,6 +516,7 @@ long svfs_mknod(vnode_t *dir, const char *name, long namelen, vnode_t **out)
 
     *out = NULL;
 
+    // reject "." and ".." and names with a slash
     for (long i = 0; i < namelen; i++)
         if (name[i] == '/' || name[i] == '\0') return -1;
 

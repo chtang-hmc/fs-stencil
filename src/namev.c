@@ -36,6 +36,7 @@ long namev_open(vnode_t *base, const char *path, vnode_t **res_vnode) {
 
     long i = 0;
 
+    // walk each part of the path
     while (path[i])
     {
         while (path[i] == '/') i++;
@@ -87,6 +88,7 @@ long namev_is_descendent(vnode_t *a, vnode_t *b) {
 
     long pos = 0;
 
+    // search this directory's children
     while (pos < b->vn_len)
     {
         dirent_t *d = NULL;
