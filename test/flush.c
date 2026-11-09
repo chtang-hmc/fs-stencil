@@ -26,7 +26,7 @@ static vnode_t *launch(void)
 }
 
 // save one line, then scribble over it in memory and leave that unsaved
-static int do_write(void)
+static int test_write(void)
 {
     if (sizeof(saved) != sizeof(dirty))
     {
@@ -36,7 +36,7 @@ static int do_write(void)
 
     vnode_t *root = launch();
     if (root == NULL || root->vn_ops->mknod == NULL)
-    {
+    { // error out
         return 1;
     }
 
@@ -69,11 +69,11 @@ static int do_write(void)
 }
 
 // start over and check that only the flushed line survived
-static int do_read(void)
+static int test_read(void)
 {
     vnode_t *root = launch();
     if (root == NULL)
-    {
+    { // error out
         return 1;
     }
 
@@ -108,11 +108,11 @@ int main(int argc, char **argv)
 {
     if (argc == 2 && strcmp(argv[1], "write") == 0)
     {
-        return do_write();
+        return test_write();
     }
     if (argc == 2 && strcmp(argv[1], "read") == 0)
     {
-        return do_read();
+        return test_read();
     }
 
     fprintf(stderr, "usage: %s write|read\n", argv[0]);

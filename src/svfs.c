@@ -43,6 +43,13 @@ static slab_allocator_t svfs_node_allocator;
  */
 void svfs_init()
 {
+    // set up memory if nobody has yet
+    if (dram == NULL)
+    {
+        mem_init();
+        slab_init();
+    }
+
     // read the super block
     char buf[SV_BLOCK_SIZE];
     read_disk_block(SV_SUPER_BLOCK, buf);
