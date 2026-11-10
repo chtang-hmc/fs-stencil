@@ -2,9 +2,6 @@
 #include "vnode.h"
 #include "dirent.h"
 
-/*
- * TODO: implement me!
- */
 long namev_lookup(vnode_t *dir, const char *name, long namelen,
                   vnode_t **out) {
     if (!out) return -1;
@@ -17,9 +14,6 @@ long namev_lookup(vnode_t *dir, const char *name, long namelen,
     return dir->vn_ops->lookup(dir, name, namelen, out);
 }
 
-/*
- * TODO: implement me!
- */
 long namev_open(vnode_t *base, const char *path, vnode_t **res_vnode) {
     if (!res_vnode) return -1;
     *res_vnode = NULL;
@@ -60,24 +54,15 @@ long namev_open(vnode_t *base, const char *path, vnode_t **res_vnode) {
     return 0;
 }
 
-/*
- * TODO: implement me!
- */
 long namev_get_child(vnode_t *base, const char *name, long namelen,
                      vnode_t **out) {
      return namev_lookup(base, name, namelen, out);
 }
 
-/*
- * TODO: implement me!
- */
 long namev_get_parent(vnode_t *base, vnode_t **out) {
    return namev_lookup(base, "..", 2, out);
 }
 
-/*
- * TODO: implement me!
- */
 long namev_is_descendent(vnode_t *a, vnode_t *b) {
     if (!a || !b) return -1;
     if (a == b) return 1;

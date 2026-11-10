@@ -2,11 +2,6 @@
 
 #include "pframe.h"
 
-/*
- * Hints:
- *   - when we write the ops, we want to make sure that we copy the value
- *     of the parameters into the space that we've been provided
- */
 void mobj_create(mobj_t *o, mobj_ops_t *ops)
 {
     // copy the ops into the mobj
@@ -17,11 +12,6 @@ void mobj_create(mobj_t *o, mobj_ops_t *ops)
     spinlock_init(&o->mo_mutex);
 }
 
-/*
- * Hints:
- *   - in this function, where do we search for frame?
- *   - if we don't find the frame, set the pfp to NULL
- */
 void mobj_find_pframe(mobj_t *o, long pagenum, pframe_t **pfp)
 {
     spinlock_lock(&o->mo_mutex);
@@ -43,12 +33,6 @@ void mobj_find_pframe(mobj_t *o, long pagenum, pframe_t **pfp)
     spinlock_unlock(&o->mo_mutex);
 }
 
-/*
- * Hints:
- *   - the frame might be in our list already...
- *   - we have access to a function to read the pframe from disk!
- *   - check how we get data from disk in sys/disk/disk.{h,c}...
- */
 void mobj_get_pframe(mobj_t *o, long pagenum, pframe_t **pfp)
 {
     // check if the frame is already loaded
@@ -94,13 +78,6 @@ static pframe_t *pframe_at(mobj_t *o, long page)
     return NULL;
 }
 
-/*
- * Hints:
- *   - pos describes where to read from in terms of bytes
- *   - len is the maximum number of bytes to read... when can we not read all
- *     of the way up to len?
- *   - save what we read to buf
- */
 long mobj_read(mobj_t *o, long pos, long len, char *buf)
 {
     long copied = 0;
@@ -138,13 +115,6 @@ long mobj_read(mobj_t *o, long pos, long len, char *buf)
     return copied;
 }
 
-/*
- * Hints:
- *   - pos describes where to write to in terms of bytes
- *   - len is the maximum number of bytes to write... when can we not read all
- *     of the way up to len?
- *   - save what we read to buf
- */
 long mobj_write(mobj_t *o, long pos, long len, const char *buf)
 {
     // find the page and offset
@@ -175,10 +145,6 @@ long mobj_write(mobj_t *o, long pos, long len, const char *buf)
     return len;
 }
 
-/*
- * Hints:
- *   - make sure that disk is up to date in the places that we care about!
- */
 void mobj_flush(mobj_t *o)
 {
     spinlock_lock(&o->mo_mutex);
